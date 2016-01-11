@@ -55,14 +55,18 @@ func createNewFileNames(filenames []os.FileInfo, pattern string) map[string]stri
 	re := regexp.MustCompile(pattern)
 
 	for _, name := range filenames {
+		//fileinfo = getFileInfo(pattern, name.Name())
 		currfile := name.Name()
 		if re.MatchString(currfile) {
 			fmt.Println(currfile)
+			//subexpnames := re.SubexpNames()
 			matches := re.FindAllStringSubmatch(currfile, -1)
 
 			OldName := matches[0][0]
 			timestamp := matches[0][1]
 			extension := matches[0][2]
+			//fileinfo[subexpnames[1]] = matches[0][1]
+			//fileinfo[subexpnames[2]] = matches[0][2]
 
 			realTime := getRealTime(timestamp)
 			year, month, day := realTime.Date()
@@ -86,8 +90,9 @@ func createNewFileNames(filenames []os.FileInfo, pattern string) map[string]stri
 			OldtoNewNames[OldName] = remoteFileName
 		}
 	}
+	//fmt.Println(OldtoNewNames)
 	return OldtoNewNames
-}
+} /* */
 
 func getRealTime(unixtimestamp string) time.Time {
 
@@ -100,60 +105,59 @@ func getRealTime(unixtimestamp string) time.Time {
 
 }
 
-/*
-func readwrite(infile string, outfile string) {
-
-	infilehandle, errin := os.Open(infile)
-	if errin != nil {
-		panic(errin)
-	}
-	defer func() {
-		if err := infilehandle.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	outfilehandle, errout := os.Open(outfile)
-	if errout != nil {
-		panic(errout)
-	}
-} */
-
-//func createsymlinks(sourcedir string, targetdir string) {
-//	newlink = os.Symlink(sourcedir)
-//}
-
 func main() {
-	//var filepath string
-	sourcedir := "/home/justdial/gowork/data"
-	//targetdir := "/home/justdial/gowork/datacopies"
-	symlinkdir := "/home/justdial/gowork/symlinks"
+	var filepath string
+	//var filehandle *File
+	fileroot := "/home/justdial/gowork"
 	//pattern := regexp.MustCompile(`^logfile\_(?P<unixtime>\d+)\.(?P<extension>\w+)$`)
 	pattern := `^logfile\_(?P<filename>\d+)\.(?P<extension>\w+)$`
 
-	filenames, direrr := ioutil.ReadDir(sourcedir)
-	OldtoNew := make(map[string]string)
+	//pwd, _ := os.Getwd()
+	filepath = path.Join(fileroot, "data")
+	filenames, direrr := ioutil.ReadDir(filepath)
+	//fileinfo := make(map[string]string)
+	//var remoteFileName string
+	//var minstring string
 
 	if direrr != nil {
 		fmt.Println(direrr)
 	} else {
-		OldtoNew = createNewFileNames(filenames, pattern)
-	}
-	fmt.Println(OldtoNew)
+		OldtoNew := createNewFileNames(filenames, pattern)
+		fmt.Println(OldtoNew)
 
-	for key, val := range OldtoNew {
-		//readwrite(path.Join(sourcedir, key), path.Join(targetdir, val))
-		if err := os.MkdirAll(symlinkdir, 0777); err != nil {
-			panic(err)
-		}
-		if _, err := os.Create(path.Join(symlinkdir, val)); err != nil {
-			panic(err)
-		}
-		linkerr := os.Symlink(path.Join(sourcedir, key), path.Join(symlinkdir, val))
-		if linkerr != nil {
-			fmt.Println(linkerr)
-			//panic(linkerr)
-		}
+		/*
+			for _, name := range filenames {
+				//fileinfo = getFileInfo(pattern, name.Name())
+				//fmt.Println(fileinfo)
+				currfile := name.Name()
+				if pattern.MatchString(currfile) {
+					fmt.Println(currfile)
+					subexpnames := pattern.SubexpNames()
+					matches := pattern.FindAllStringSubmatch(currfile, -1)
+					fileinfo["filename"] = matches[0][0]
+					fileinfo[subexpnames[1]] = matches[0][1]
+					fileinfo[subexpnames[2]] = matches[0][2]
+
+					//fmt.Println(fileinfo)
+					realTime := getRealTime(fileinfo["unixtime"])
+					year, month, day := realTime.Date()
+					hour, min, _ := realTime.Clock()
+
+					if min >= 0 && min < 30 {
+						minstring = "00"
+					} else if min >= 30 && min < 60 {
+						minstring = "30"
+					} else {
+						fmt.Println("Error! Wrong time")
+					}
+
+					remoteFileName = strings.Join([]string{"log_", strconv.Itoa(year), strconv.Itoa(int(month)), strconv.Itoa(day), strconv.Itoa(hour), minstring}, "")
+
+					fmt.Println(matches)
+					fmt.Println(remoteFileName)
+				}
+			} */
+
 	}
 
 }
