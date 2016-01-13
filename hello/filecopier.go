@@ -5,6 +5,7 @@ import (
 	"fmt"
 	//"io"
 	"io/ioutil"
+	//"log"
 	"os"
 	"path"
 	//"path/filepath"
@@ -46,7 +47,7 @@ func twodigits(number int) string {
 	return formattedstring
 }
 
-func createNewFileNames(filenames []os.FileInfo, pattern string) map[string]string {
+func createNewFileNames(fileNames []os.FileInfo, pattern string) map[string]string {
 
 	var remoteFileName string
 	var minstring string
@@ -54,7 +55,7 @@ func createNewFileNames(filenames []os.FileInfo, pattern string) map[string]stri
 	OldtoNewNames := make(map[string]string)
 	re := regexp.MustCompile(pattern)
 
-	for _, name := range filenames {
+	for _, name := range fileNames {
 		currfile := name.Name()
 		if re.MatchString(currfile) {
 			fmt.Println(currfile)
@@ -76,12 +77,9 @@ func createNewFileNames(filenames []os.FileInfo, pattern string) map[string]stri
 				fmt.Println("Error! Wrong time")
 			}
 
-			//monthstring := twodigits(int(month))
-			//hourstring := twodigits(hour)
-			//daystring := twodigits(day)
 			datestring := strings.Join([]string{strconv.Itoa(year), twodigits(int(month)), twodigits(day)}, "/")
 
-			remoteFileName = strings.Join([]string{"log_", datestring, twodigits(hour), ":", minstring, ".", extension}, "")
+			remoteFileName = strings.Join([]string{"log_", datestring, "T", twodigits(hour), ":", minstring, ".", extension}, "")
 
 			OldtoNewNames[OldName] = remoteFileName
 		}
@@ -119,41 +117,57 @@ func readwrite(infile string, outfile string) {
 	}
 } */
 
-//func createsymlinks(sourcedir string, targetdir string) {
-//	newlink = os.Symlink(sourcedir)
-//}
+func createSymLink(file string, sourceDir string, targetDir string) {
+	//Takes in a file name, a source directory and a target directory. In the target directory,
+	//creates symlink to the file in source directory
+
+	linkerr := os.Symlink(path.Join(sourceDir, file), path.Join(targetDir, file))
+	if linkerr != nil {
+		if linkerr == os.ErrExist {
+			return
+		} else {
+			fmt.Println(linkerr)
+		}
+	}
+}
 
 func main() {
 	//var filepath string
-	sourcedir := "/home/justdial/gowork/data"
-	//targetdir := "/home/justdial/gowork/datacopies"
-	symlinkdir := "/home/justdial/gowork/symlinks"
+	sourceDir := "/home/justdial/gowork/data"
+	//targetDir := "/home/justdial/gowork/datacopies"
+	symLinkDir := "/home/justdial/gowork/symlinks"
 	//pattern := regexp.MustCompile(`^logfile\_(?P<unixtime>\d+)\.(?P<extension>\w+)$`)
 	pattern := `^logfile\_(?P<filename>\d+)\.(?P<extension>\w+)$`
 
-	filenames, direrr := ioutil.ReadDir(sourcedir)
-	OldtoNew := make(map[string]string)
+	dataFileNames, direrr := ioutil.ReadDir(sourceDir)
+	oldToNew := make(map[string]string)
 
 	if direrr != nil {
 		fmt.Println(direrr)
 	} else {
-		OldtoNew = createNewFileNames(filenames, pattern)
-	}
-	fmt.Println(OldtoNew)
+		oldToNew = createNewFileNames(dataFileNames, pattern)
 
-	for key, val := range OldtoNew {
-		//readwrite(path.Join(sourcedir, key), path.Join(targetdir, val))
-		if err := os.MkdirAll(symlinkdir, 0777); err != nil {
-			panic(err)
+		for k, _ := range oldToNew {
+			if err := os.MkdirAll(symLinkDir, 0777); err != nil {
+				panic(err)
+			}
+			createSymLink(k, sourceDir, symLinkDir)
 		}
-		if _, err := os.Create(path.Join(symlinkdir, val)); err != nil {
-			panic(err)
-		}
-		linkerr := os.Symlink(path.Join(sourcedir, key), path.Join(symlinkdir, val))
-		if linkerr != nil {
-			fmt.Println(linkerr)
-			//panic(linkerr)
-		}
+	}
+
+	//At this point, we have symlinks, and a target directory to write to. Hence read the symlink directory
+	//to get a list of files to be copied
+	linkNames, direrr := ioutil.ReadDir(symLinkDir)
+	if direrr != nil {
+		fmt.Println(direrr)
+	}
+
+	for _, eachLink := range linkNames {
+		//realPath, _ := filepath.EvalSymlinks(eachLink)
+		fmt.Println(eachLink)
+		realPathInfo, _ := os.Lstat(eachLink.Name())
+		fmt.Println(realPathInfo)
+
 	}
 
 }
