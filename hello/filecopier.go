@@ -8,7 +8,7 @@ import (
 	//"log"
 	"os"
 	"path"
-	//"path/filepath"
+	"path/filepath"
 	"regexp"
 	//"regexp/syntax"
 	"strconv"
@@ -47,44 +47,44 @@ func twodigits(number int) string {
 	return formattedstring
 }
 
-func createNewFileNames(fileNames []os.FileInfo, pattern string) map[string]string {
+func createNewFileName(oldFileName string, pattern string) string {
 
 	var remoteFileName string
 	var minstring string
 
-	OldtoNewNames := make(map[string]string)
+	//OldtoNewNames := make(map[string]string)
 	re := regexp.MustCompile(pattern)
 
-	for _, name := range fileNames {
-		currfile := name.Name()
-		if re.MatchString(currfile) {
-			fmt.Println(currfile)
-			matches := re.FindAllStringSubmatch(currfile, -1)
+	//for _, name := range fileNames {
+	//currfile := name.Name()
+	if re.MatchString(oldFileName) {
+		fmt.Println(oldFileName)
+		matches := re.FindAllStringSubmatch(oldFileName, -1)
 
-			OldName := matches[0][0]
-			timestamp := matches[0][1]
-			extension := matches[0][2]
+		OldName := matches[0][0]
+		timestamp := matches[0][1]
+		extension := matches[0][2]
 
-			realTime := getRealTime(timestamp)
-			year, month, day := realTime.Date()
-			hour, min, _ := realTime.Clock()
+		realTime := getRealTime(timestamp)
+		year, month, day := realTime.Date()
+		hour, min, _ := realTime.Clock()
 
-			if min >= 0 && min < 30 {
-				minstring = "00"
-			} else if min >= 30 && min < 60 {
-				minstring = "30"
-			} else {
-				fmt.Println("Error! Wrong time")
-			}
-
-			datestring := strings.Join([]string{strconv.Itoa(year), twodigits(int(month)), twodigits(day)}, "/")
-
-			remoteFileName = strings.Join([]string{"log_", datestring, "T", twodigits(hour), ":", minstring, ".", extension}, "")
-
-			OldtoNewNames[OldName] = remoteFileName
+		if min >= 0 && min < 30 {
+			minstring = "00"
+		} else if min >= 30 && min < 60 {
+			minstring = "30"
+		} else {
+			fmt.Println("Error! Wrong time")
 		}
+
+		datestring := strings.Join([]string{strconv.Itoa(year), twodigits(int(month)), twodigits(day)}, "/")
+
+		remoteFileName = strings.Join([]string{"log_", datestring, "T", twodigits(hour), ":", minstring, ".", extension}, "")
+
+		//OldtoNewNames[OldName] = remoteFileName
 	}
-	return OldtoNewNames
+	//}
+	return remoteFileName
 }
 
 func getRealTime(unixtimestamp string) time.Time {
@@ -139,34 +139,56 @@ func main() {
 	//pattern := regexp.MustCompile(`^logfile\_(?P<unixtime>\d+)\.(?P<extension>\w+)$`)
 	pattern := `^logfile\_(?P<filename>\d+)\.(?P<extension>\w+)$`
 
-	dataFileNames, direrr := ioutil.ReadDir(sourceDir)
-	oldToNew := make(map[string]string)
+	dataFileInfo, direrr := ioutil.ReadDir(sourceDir)
+	//oldToNew := make(map[string]string)
 
 	if direrr != nil {
 		fmt.Println(direrr)
 	} else {
-		oldToNew = createNewFileNames(dataFileNames, pattern)
+		//oldToNew = createNewFileNames(dataFileInfo, pattern)
+		if err := os.MkdirAll(symLinkDir, 0777); err != nil {
+			panic(err)
+		}
 
-		for k, _ := range oldToNew {
-			if err := os.MkdirAll(symLinkDir, 0777); err != nil {
-				panic(err)
-			}
-			createSymLink(k, sourceDir, symLinkDir)
+		for _, fis := range dataFileInfo {
+			createSymLink(fis.Name(), sourceDir, symLinkDir)
 		}
 	}
 
 	//At this point, we have symlinks, and a target directory to write to. Hence read the symlink directory
 	//to get a list of files to be copied
-	linkNames, direrr := ioutil.ReadDir(symLinkDir)
+
+	linkfi, direrr := ioutil.ReadDir(symLinkDir)
 	if direrr != nil {
 		fmt.Println(direrr)
 	}
 
-	for _, eachLink := range linkNames {
-		//realPath, _ := filepath.EvalSymlinks(eachLink)
-		fmt.Println(eachLink)
-		realPathInfo, _ := os.Lstat(eachLink.Name())
-		fmt.Println(realPathInfo)
+	resolvedSymlinks := make(map[string]string)
+
+	for _, eachLink := range linkfi {
+
+		if eachLink.Mode()&os.ModeSymlink != 0 {
+			currfile = eachLink.Name()
+			realPath, err := filepath.EvalSymlinks(path.Join(symLinkDir, currfile))
+			//filenm, _ := os.Lstat(eachLink.Name())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			resolvedSymlinks[currfile] = realPath
+		}
+	}
+
+	//Now, we have resolved the Symlinks into a map "resolvedSymlinks" which has absolute filepaths to be copied.
+
+	//Start with the "targerDir", where the files are to be copied.
+
+	if direrr := os.MkdirAll(targetDir, 0777); direrr != nil {
+		panic(direrr)
+	}
+	for symlinkfile, realFile := range resolvedSymlinks {
+		newName = createNewFileName(symlinkfile, pattern)
+		readwrite(path.Join(sourceDir, symlinkfile), path.Join(targetDir, newName))
 
 	}
 
